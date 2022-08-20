@@ -93,12 +93,12 @@ myScratchPads =
     centeredLarge = centered 0.9 0.9
     centeredIBox  = centered 0.4 0.175
 
-    spawnTerm x = term ++ " -t term" ++ show x
-    findTerm  x = find $ "term" ++ show x
-    term'       = flip (liftA3 N.NS (("term" ++) . show) spawnTerm findTerm) centeredLarge
+    spawnTerm = ((term ++ " -t term") ++) . show
+    findTerm  = find . ("term" ++) . show
+    term'     = flip (liftA3 N.NS (("term" ++) . show) spawnTerm findTerm) centeredLarge
 
     terms :: Int -> Int -> [N.NamedScratchpad]
-    terms x y = fmap term' [x..y]
+    terms = (fmap term' .) . enumFromTo
 
 myManageHook :: XMonad.Query (Data.Monoid.Endo WindowSet)
 myManageHook = composeAll
@@ -159,15 +159,16 @@ myKeys =
   , ter "M1-f" 1.0   "lf"
   , ter "M1-v" 1.0   "nvim"
   , cmd "M-l"        "xtrlock"
+  , cmd "M-C-l"      "prev_brightness=$(lux -g); lux -S 0; xtrlock; lux -S \"$prev_brightness\""
   , sh' "<Print>"    "screenshot"
   , sh' "C-<Print>"  "screenshotflame"
   , sh' "S-<Print>"  "screenshotfull"
 
   -- KB_GROUP Window Management
-  , on  "M-C-a" $  windows copyToAll    -- Copy current window to all workspaces
-  , on  "M-S-c"    kill1                -- Kill the currently focused client
-  , on  "M-S-a"    killAll              -- Kill all windows on current workspace
-  , on  "M-C-c"    killAllOtherCopies   -- Kill all windows on current workspace
+  , on  "M-C-a" $  windows copyToAll   -- Copy current window to all workspaces
+  , on  "M-S-c"    kill1               -- Kill the currently focused client
+  , on  "M-S-a"    killAll             -- Kill all windows on current workspace
+  , on  "M-C-c"    killAllOtherCopies  -- Kill all windows on current workspace
   , sh  "M--"     "xbasket" ["hide"]   -- Hide window
   , sh  "M-="     "xbasket" ["select"] -- Select hidden window
 
@@ -222,12 +223,12 @@ myKeys =
   -- KB_GROUP Scratchpads
   , nsp "M-s" "btop"
   , nsp "M-d" "calcurse"
-  ] ++ liftA2 (++) (uncurry termBinds) (uncurry wsBinds) (1, 9)
+  ] ++ liftA2 (++) (uncurry termBinds) (uncurry wsBinds) (1,9)
 -- END_KEYS
   where
     on :: String -> X() -> (String, X())
     on = (,)
-    cmd x y   = on  x $ spawn y
+    cmd x y = on x $ spawn y
     ter :: String -> Float -> String -> (String, X())
     ter x o y = cmd x $ term ++ " -o window.opacity=" ++ show o ++ " -e " ++ y
     sh  x y z = cmd x $ "~/.xmonad/scripts/" ++ y ++ ".sh " ++ unwords z
@@ -235,7 +236,7 @@ myKeys =
     nsp key   = on key . N.namedScratchpadAction myScratchPads
 
     termBinds :: Int -> Int -> [(String, X())]
-    termBinds x y = liftA2 nsp ("M1-" ++) ("term" ++) . show <$> [x..y]
+    termBinds = ((liftA2 nsp ("M1-" ++) ("term" ++) . show <$>) .) . enumFromTo
 
     -- This function is intentionally cursed
     wsBinds :: Int -> Int -> [(String, X())]
@@ -312,13 +313,15 @@ main = do
                       $ T.toggleLayouts floats $ mkToggle (NBFULL ?? NOBORDERS ?? EOT) layouts
         where
           name x = renamed [Replace x]
+          xpm x y = name $ "<icon=" ++ x ++ ".xpm/> " ++ y
           borderedSub = subLayout [] (smartBorders Simplest)
-          tall = name "<icon=tall_16.xpm/> tall"
+
+          tall = xpm "tall_16" "tall"
             $ windowNavigation
             $ borderedSub
             $ ResizableTall 1 (1/100) (1/2) []
-          floats = name "<icon=floats_16.xpm/> floats" simplestFloat
-          grid = name "<icon=grid_16.xpm/> grid"
+          floats = xpm "floats_16" "floats" simplestFloat
+          grid = xpm "grid_16" "grid"
             $ windowNavigation
             $ borderedSub
             $ mkToggle (single MIRROR)
