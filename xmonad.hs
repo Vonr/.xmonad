@@ -47,10 +47,10 @@ import XMonad.Util.Run (spawnPipe)
 import qualified XMonad.Util.NamedScratchpad as N
 import XMonad.Util.SpawnOnce
 import XMonad.Actions.DynamicWorkspaceOrder (moveTo, shiftTo, getSortByOrder)
-import XMonad.Actions.WorkspaceNames (swapTo', workspaceNamesEwmh)
+import XMonad.Actions.WorkspaceNames (swapTo', workspaceNamesEwmh, swapWithCurrent)
 
 browser :: String
-browser = "chromium --enable-features=VaapiVideoDecoder --ignore-gpu-blocklist --disable-features=UseOzonePlatform --use-gl=desktop --enable-gpu-rasterization --enable-zero-copy"
+browser = "chromium --allow-legacy-extension-manifests --enable-features=VaapiVideoDecoder --ignore-gpu-blocklist --disable-features=UseOzonePlatform --use-gl=desktop --enable-gpu-rasterization --enable-zero-copy"
 
 myStartupHook :: X()
 myStartupHook = do
@@ -228,41 +228,41 @@ myKeys =
   where
     on :: String -> X() -> (String, X())
     on = (,)
-    cmd x y = on x $ spawn y
+    cmd key c = on key $ spawn c
+    ter key o c = cmd key $ term ++ " -o window.opacity=" ++ show o ++ " -e " ++ c
     ter :: String -> Float -> String -> (String, X())
-    ter x o y = cmd x $ term ++ " -o window.opacity=" ++ show o ++ " -e " ++ y
-    sh  x y z = cmd x $ "~/.xmonad/scripts/" ++ y ++ ".sh " ++ unwords z
-    sh' x y   = sh x y []
-    nsp key   = on key . N.namedScratchpadAction myScratchPads
+    sh  key f a = cmd key $ "~/.xmonad/scripts/" ++ f ++ ".sh " ++ unwords a
+    sh' key f   = sh key f []
+    nsp key     = on key . N.namedScratchpadAction myScratchPads
 
     termBinds :: Int -> Int -> [(String, X())]
     termBinds = ((liftA2 nsp ("M1-" ++) ("term" ++) . show <$>) .) . enumFromTo
 
     -- This function is intentionally cursed
-    wsBinds :: Int -> Int -> [(String, X())]
-    wsBinds = ((liftA2 (++)
-      (liftA2 on ("M-"   ++) (windows . W.greedyView) <$>)
-      (liftA2 on ("M-S-" ++) (liftA2 (*>)
-        (windows . W.shift)
-        (windows . W.greedyView)) <$>)
-      . fmap show) .) . enumFromTo
+    wsBinds = ((=<<) (sequenceA
+      [ liftA2 on ("M-"   ++) $ windows . W.greedyView
+      , liftA2 on ("M-S-" ++) $ liftA2 (*>)
+                                (windows . W.shift)
+                                (windows . W.greedyView)
+      , liftA2 on ("M-C-" ++) swapWithCurrent
+      ] . show) .) . enumFromTo
 
 myMouseBindings :: [((ButtonMask, Button), Window -> X ())]
 myMouseBindings =
-  [ on 8 $ moveTo Next nonNSP
-  , on 9 $ moveTo Prev nonNSP
-  , mk shiftMask 8 $ shiftTo Next nonNSP *> moveTo Next nonNSP
-  , mk shiftMask 9 $ shiftTo Prev nonNSP *> moveTo Prev nonNSP
+  [ on             8 $ moveTo  Next nonNSP
+  , on             9 $ moveTo  Prev nonNSP
+  , mk shiftMask   8 $ shiftTo Next nonNSP *> moveTo Next nonNSP
+  , mk shiftMask   9 $ shiftTo Prev nonNSP *> moveTo Prev nonNSP
   , mk controlMask 8 $ swapTo' Next nonNSP
   , mk controlMask 9 $ swapTo' Prev nonNSP
   ]
   where
-    mk mask x y = ((mask, x), const y)
+    mk mask key f = ((mask, key), const f)
     on          = mk 0
 
 main :: IO ()
 main = do
-  xmproc <- spawnPipe "~/.config/xmobar/xmobar -x 0 -r ~/.config/xmobar/xmobar.hs"
+  xmproc <- spawnPipe "~/.cabal/bin/xmobar -x 0 -r ~/.config/xmobar/xmobar.hs"
   xmonad $ Hacks.javaHack . docks . withSB mySB . ewmhFullscreen . workspaceNamesEwmh . ewmh $ desktopConfig
     { manageHook         = myManageHook <> manageDocks
     , modMask            = mod4Mask
@@ -304,7 +304,7 @@ main = do
       xmBox pos color = el "box" "" [("type", pos), ("width", "2"), ("mb", "2"), ("color", color)]
       wrap'           = join wrap
 
-      mySB = statusBarProp "~/.config/xmobar/xmobar" (pure xmobarPP { ppOrder = \ (_ : l : _) -> [unwords $ drop 1 $ words l]})
+      mySB = statusBarProp "~/.cabal/bin/xmobar" (pure xmobarPP { ppOrder = \ (_ : l : _) -> [unwords $ drop 1 $ words l]})
 
       clickable ws = el "action" ("wmctrl -s " ++ show ((read ws :: Int) - 1)) [] ws
 
