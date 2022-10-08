@@ -1,11 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
-exec ~/.ghcup/bin/stack ghc \
-    -- \
-    --make xmonad.hs \
-    -i \
-    -ilib \
-    -fforce-recomp \
-    -main-is main \
-    -v0 \
-    -o "$1"
+~/.ghcup/bin/cabal build . -w ghc-8.10.7
+exec cp -f "$(find ~/.xmonad/dist-newstyle/build/x86_64-linux/ghc-8.10.7/ -maxdepth 1 | sort | tail -1)"/x/xmonad/build/xmonad/xmonad "$1"
