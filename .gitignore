@@ -3,4 +3,5 @@ xmonad.hi
 xmonad.errors
 xmonad.log
 xmonad-x86_64-linux
-.stack-work/
+dist/
+dist-newstyle/
