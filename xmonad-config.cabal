@@ -2,7 +2,7 @@ name:               xmonad-config
 version:            1.0.3
 homepage:           https://www.github.com/Vonr/.xmonad
 category:           System
-license:            UNLICENSE
+license:            PublicDomain
 license-file:       UNLICENSE
 author:             Vonr
 maintainer:         Vonr

@@ -1,4 +1,4 @@
 #!/bin/sh
 
-~/.ghcup/bin/cabal build . -w ghc-8.10.7
-exec cp -f "$(find ~/.xmonad/dist-newstyle/build/x86_64-linux/ghc-8.10.7/ -maxdepth 1 | sort | tail -1)"/x/xmonad/build/xmonad/xmonad "$1"
+~/.ghcup/bin/cabal build . -w ghc-8.10.7 || exit
+exec cp -f "$(find ~/.xmonad/dist-newstyle/build/x86_64-linux/ghc-8.10.7/ -maxdepth 1 | sort | tail -1)/x/xmonad/build/xmonad/xmonad" "$1"
