@@ -59,7 +59,7 @@ myStartupHook = do
     [ "dbus-update-activation-environment --systemd DBUS_SESSION_BUS_ADDRESS DISPLAY XAUTHORITY" -- fix xdg-portal-desktop not working
     , "lxsession"
     , "{ lxappearance & }; sleep 0.5; killall lxappearance" -- Fix cursor
-    , "feh --bg-scale ~/.local/share/wallpapers/haskell-gradient.png"
+    , "feh --bg-scale ~/.xmonad/wallpaper"
     , "conky"
     , "greenclip daemon"
     , "dunst"
@@ -287,8 +287,8 @@ main = do
       }
     } `additionalMouseBindings` myMouseBindings
     where
-      colorWorkspace = "#b16286"
-      colorHidden    = "#928374"
+      colorWorkspace = "#165495"
+      colorHidden    = "#3b526a"
 
       el :: String -> String -> [(String, String)] -> String -> String
       el e ev attr = wrap
