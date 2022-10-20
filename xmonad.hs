@@ -65,9 +65,11 @@ myStartupHook = do
     , "dunst"
     , "picom"
     ]
-  spawnOnOnce "2" "discord-canary"
-  spawnOnOnce "3" "whatsapp-nativefier"
-  spawnOnOnce "1" browser
+  traverse_ (uncurry spawnOnOnce)
+    [ ("2", "discord-canary")
+    , ("3", "whatsapp-nativefier")
+    , ("1", browser)
+    ]
 
 term :: String
 term = "alacritty" -- There appears to be no good way to know the user's default terminal.
@@ -102,11 +104,11 @@ myScratchPads =
 
 myManageHook :: XMonad.Query (Data.Monoid.Endo WindowSet)
 myManageHook = composeAll
-  ([ float'    title    "Emulator"
-   , floatRes "firefox" "Dialog"
+  ([ float'      title     "Emulator"
+   , floatRes   "firefox"  "Dialog"
+   , shiftClass "discord"  "2"
+   , shiftClass "whatsapp" "3"
    , isFullscreen --> doFullFloat
-   , className =~ "discord" --> doShift "2"
-   , className =~ "whatsapp" --> doShift "3"
   ] ++ fmap (float' className)
     [ "confirm"
     , "file_progress"
@@ -126,6 +128,7 @@ myManageHook = composeAll
 
     float'   x y = (x =~ y) --> doFloat
     floatRes x y = (className =~ x <&&> resource =~ y) --> doFloat
+    shiftClass x ws = className =~ x --> doShift ws
 
 nonNSP :: WSType
 nonNSP = WSIs $ pure $ (/=) "NSP" . W.tag
@@ -258,7 +261,7 @@ myMouseBindings =
   ]
   where
     mk mask key f = ((mask, key), const f)
-    on          = mk 0
+    on            = mk 0
 
 main :: IO ()
 main = do
@@ -316,12 +319,12 @@ main = do
           xpm x y = name $ "<icon=" ++ x ++ ".xpm/> " ++ y
           borderedSub = subLayout [] (smartBorders Simplest)
 
-          tall = xpm "tall_16" "tall"
+          tall = xpm "tall" "tall"
             $ windowNavigation
             $ borderedSub
             $ ResizableTall 1 (1/100) (1/2) []
-          floats = xpm "floats_16" "floats" simplestFloat
-          grid = xpm "grid_16" "grid"
+          floats = xpm "floats" "floats" simplestFloat
+          grid = xpm "grid" "grid"
             $ windowNavigation
             $ borderedSub
             $ mkToggle (single MIRROR)
