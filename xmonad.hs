@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-unused-local-binds #-}
+
 import XMonad
 import System.IO (hPutStrLn)
 import System.Exit (exitSuccess)
@@ -48,25 +50,30 @@ import qualified XMonad.Util.NamedScratchpad as N
 import XMonad.Util.SpawnOnce
 import XMonad.Actions.DynamicWorkspaceOrder (moveTo, shiftTo, getSortByOrder)
 import XMonad.Actions.WorkspaceNames (swapTo', workspaceNamesEwmh, swapWithCurrent)
+import Text.Read (readMaybe)
+import Data.Maybe (fromMaybe)
 
 browser :: String
-browser = "chromium --allow-legacy-extension-manifests --enable-features=VaapiVideoDecoder --ignore-gpu-blocklist --disable-features=UseOzonePlatform --use-gl=desktop --enable-gpu-rasterization --enable-zero-copy"
+browser = "chromium --allow-legacy-extension-manifests --enable-features=VaapiVideoDecoder --ignore-gpu-blocklist --disable-features=UseOzonePlatform --use-gl=desktop --enable-gpu-rasterization --enable-zero-copy --process-per-site"
 
 myStartupHook :: X()
 myStartupHook = do
   setWMName "LG3D"
+  traverse_ spawn
+    [ "pkill picom; picom"
+    , "~/.config/xmobar/scripts/cavabar"
+    ]
   traverse_ spawnOnce
     [ "dbus-update-activation-environment --systemd DBUS_SESSION_BUS_ADDRESS DISPLAY XAUTHORITY" -- fix xdg-portal-desktop not working
     , "lxsession"
-    , "{ lxappearance & }; sleep 0.5; killall lxappearance" -- Fix cursor
     , "feh --bg-scale ~/.xmonad/wallpaper"
     , "conky"
     , "greenclip daemon"
     , "dunst"
-    , "picom"
+    , "~/.xstart"
     ]
   traverse_ (uncurry spawnOnOnce)
-    [ ("2", "discord-canary")
+    [ ("2", "discord-canary --ignore-gpu-blocklist --disable-features=UseOzonePlatform --enable-features=VaapiVideoDecoder --use-gl=desktop --enable-gpu-rasterization --enable-zero-copy")
     , ("3", "whatsapp-nativefier")
     , ("1", browser)
     ]
@@ -93,7 +100,7 @@ myScratchPads =
         y  = (1 - h) / 2
 
     centeredLarge = centered 0.9 0.9
-    centeredIBox  = centered 0.4 0.175
+    centeredIBox  = centered 0.4 0.15
 
     spawnTerm = ((term ++ " -t term") ++) . show
     findTerm  = find . ("term" ++) . show
@@ -143,24 +150,21 @@ myKeys =
   , nsp "M-S-/"    "xmonad_keys"                              -- Get list of keybindings
 
   -- KB_GROUP Rofi
-  , cmd "M-p"   "rofi -show drun"                                                             -- rofi
-  , cmd "M-c"   "rofi -show calc -no-show-match -no-sort"                                     -- rofi-calc
-  , cmd "M-q"   "rofi -show window"                                                           -- rofi-calc
-  , cmd "M-e"   "rofi -show emoji"                                                            -- rofi-emoji
-  , sh' "M-S-e" "rofi-nerdfont"                                                               -- rofi-nerdfont
-  , sh' "M-C-e" "rofi-unicode"                                                                -- rofi-unicode
-  , sh' "M-S-w" "rofi-wifi-menu"                                                              -- rofi-wifi-menu
-  , sh' "M-S-q" "rofi-power-menu"                                                             -- rofi power menu
-  , cmd "M-v"   "rofi -modi 'clipboard:greenclip print' -show clipboard -run-command '{cmd}'" -- greenclip
+  , cmd "M-p"   "rofi -show drun"                                                                            -- rofi
+  , cmd "M-c"   "rofi -show calc -no-show-match -no-sort -calc-command \"echo -n '{result}' | xclip -se c\"" -- rofi-calc
+  , cmd "M-q"   "rofi -show window"                                                                          -- rofi-calc
+  , cmd "M-e"   "rofi -show emoji"                                                                           -- rofi-emoji
+  , sh' "M-S-e" "rofi-nerdfont"                                                                              -- rofi-nerdfont
+  , sh' "M-C-e" "rofi-unicode"                                                                               -- rofi-unicode
+  , sh' "M-S-w" "rofi-wifi-menu"                                                                             -- rofi-wifi-menu
+  , cmd "M-S-q" "~/.config/rofi/scripts/powermenu_t1"                                                        -- rofi power menu
+  , cmd "M-v"   "rofi -modi 'clipboard:greenclip print' -show clipboard -run-command '{cmd}'"                -- greenclip
 
   -- KB_GROUP Useful Applications
   , cmd "M-b"         browser
   , cmd "M-<Return>"  term
-  , cmd "M1-d"       "discord-canary"
   , cmd "M-S-s"      "sleep 0.3; xset -display $DISPLAY dpms force off"
-  , cmd "M-f"        "pcmanfm"
-  , ter "M1-f" 1.0   "lf"
-  , ter "M1-v" 1.0   "nvim"
+  , cmd "M-f"        "pcmanfm-qt"
   , cmd "M-l"        "xtrlock"
   , cmd "M-C-l"      "prev_brightness=$(lux -g); lux -S 0; xtrlock; lux -S \"$prev_brightness\""
   , sh' "<Print>"    "screenshot"
@@ -168,12 +172,13 @@ myKeys =
   , sh' "S-<Print>"  "screenshotfull"
 
   -- KB_GROUP Window Management
-  , on  "M-C-a" $  windows copyToAll   -- Copy current window to all workspaces
-  , on  "M-S-c"    kill1               -- Kill the currently focused client
-  , on  "M-S-a"    killAll             -- Kill all windows on current workspace
-  , on  "M-C-c"    killAllOtherCopies  -- Kill all windows on current workspace
-  , sh  "M--"     "xbasket" ["hide"]   -- Hide window
-  , sh  "M-="     "xbasket" ["select"] -- Select hidden window
+  , on  "M-C-a" $  windows copyToAll        -- Copy current window to all workspaces
+  , on  "M-S-c"    kill1                    -- Kill the currently focused client
+  , on  "M-S-a"    killAll                  -- Kill all windows on current workspace
+  , on  "M-C-c"    killAllOtherCopies       -- Kill all windows on current workspace
+  , on  "<F11>" $  sendMessage ToggleStruts -- Fullscreen
+  , sh  "M--"     "xbasket" ["hide"]        -- Hide window
+  , sh  "M-="     "xbasket" ["select"]      -- Select hidden window
 
   -- KB_GROUP Volume Control
   , cmd "<XF86AudioRaiseVolume>" "pactl set-sink-volume @DEFAULT_SINK@ +1%; pactl get-sink-volume @DEFAULT_SINK@ | sed -r '{N; s/^(\\w*\\W+){4}([0-9]+%).*/\\2/}' | xargs -I '{}' notify-send -i '/usr/share/notify-osd/icons/hicolor/scalable/status/notification-audio-volume-medium.svg' -t 1000 -a 'sysnotif' -h int:value:{} 'Volume' 'Volume increased to'"
@@ -189,8 +194,6 @@ myKeys =
   -- KB_GROUP Workspaces
   , on  "M-."   $ moveTo  Next nonNSP                        -- Switch to next workspace
   , on  "M-,"   $ moveTo  Prev nonNSP                        -- Switch to previous workspace
-  , on  "M1-e"  $ moveTo  Next nonNSP                        -- Switch to next workspace
-  , on  "M1-w"  $ moveTo  Prev nonNSP                        -- Switch to previous workspace
   , on  "M-S-." $ shiftTo Next nonNSP *> moveTo Next nonNSP  -- Shifts focused window to next ws
   , on  "M-S-," $ shiftTo Prev nonNSP *> moveTo Prev nonNSP  -- Shifts focused window to prev ws
   , on  "M-C-." $ swapTo' Next nonNSP                        -- Swaps current workspace with next workspace
@@ -201,11 +204,12 @@ myKeys =
   , on  "M-S-t"   sinkAll                        -- Push ALL floating windows to tile
 
   -- KB_GROUP Windows Navigation
-  , on  "M-m"   $ windows W.focusMaster -- Move focus to the master window
-  , on  "M-j"   $ windows W.focusDown   -- Move focus to the next window
-  , on  "M-k"   $ windows W.focusUp     -- Move focus to the prev window
-  , on  "M-S-j" $ windows W.swapDown    -- Swap focused window with next window
-  , on  "M-S-k" $ windows W.swapUp      -- Swap focused window with prev window
+  , on  "M-m"      $ windows W.focusMaster -- Move focus to the master window
+  , on  "M-j"      $ windows W.focusDown   -- Move focus to the next window
+  , on  "M1-<Tab>" $ windows W.focusDown   -- Move focus to the next window
+  , on  "M-k"      $ windows W.focusUp     -- Move focus to the prev window
+  , on  "M-S-j"    $ windows W.swapDown    -- Swap focused window with next window
+  , on  "M-S-k"    $ windows W.swapUp      -- Swap focused window with prev window
   , on  "M-/"     promote               -- Moves focused window to master, others maintain order
   , on  "M-;"     rotAllDown            -- Rotate all the windows in the current stack
 
@@ -274,7 +278,7 @@ main = do
     , startupHook        = startupHook     def <> myStartupHook
     , handleEventHook    = handleEventHook def <> Hacks.windowedFullscreenFixEventHook
     , layoutHook         = myLayoutHook
-    , workspaces         = fmap show ([1..9] :: [Int])
+    , workspaces         = fmap (: []) ['1'..'9']
     , borderWidth        = myBorderWidth
     , normalBorderColor  = "#000000"
     , focusedBorderColor = "#966FD6"
@@ -309,22 +313,22 @@ main = do
 
       mySB = statusBarProp "~/.cabal/bin/xmobar" (pure xmobarPP { ppOrder = \ (_ : l : _) -> [unwords $ drop 1 $ words l]})
 
-      clickable ws = el "action" ("wmctrl -s " ++ show ((read ws :: Int) - 1)) [] ws
+      clickable ws = el "action" ("wmctrl -s " ++ show (fromMaybe 1 (readMaybe ws :: Maybe Int) - 1)) [] ws
 
       myBorderWidth = 2
       myLayoutHook  = avoidStruts $ smartSpacing 2 $ smartBorders $ windowArrange
                       $ T.toggleLayouts floats $ mkToggle (NBFULL ?? NOBORDERS ?? EOT) layouts
         where
           name x = renamed [Replace x]
-          xpm x y = name $ "<icon=" ++ x ++ ".xpm/> " ++ y
+          xpm x = name $ "<icon=" ++ x ++ ".xpm/>"
           borderedSub = subLayout [] (smartBorders Simplest)
 
-          tall = xpm "tall" "tall"
+          tall = xpm "tall"
             $ windowNavigation
             $ borderedSub
             $ ResizableTall 1 (1/100) (1/2) []
-          floats = xpm "floats" "floats" simplestFloat
-          grid = xpm "grid" "grid"
+          floats = xpm "floats" simplestFloat
+          grid = xpm "grid"
             $ windowNavigation
             $ borderedSub
             $ mkToggle (single MIRROR)
