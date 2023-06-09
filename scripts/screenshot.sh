@@ -2,13 +2,13 @@
 
 # Requires slop and shotgun
 
-mkdir -p "${HOME}/Pictures/screenshots"
+mkdir -p "${HOME}/pictures/screenshots" || exit 1
 date=$(date +%Y-%m-%d)
-file="${HOME}/Pictures/screenshots/${date}-1.png"
+file="${HOME}/pictures/screenshots/${date}-1.png"
 
 count=2
 while [ -f "$file" ]; do # file exists already
-    file="${HOME}/Pictures/screenshots/${date}-${count}.png"
+    file="${HOME}/pictures/screenshots/${date}-${count}.png"
     count=$((count + 1))
 done
 

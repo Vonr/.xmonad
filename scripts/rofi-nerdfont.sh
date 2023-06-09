@@ -2,13 +2,12 @@
 # Requires: curl, htmlq, sed, grep, xargs, rofi, xclip
 
 ([ -f "$HOME/.cache/nerdfont-icons.md" ] \
-    || (curl -s 'https://raw.githubusercontent.com/ryanoasis/nerd-fonts/gh-pages/_posts/2017-01-04-icon-cheat-sheet.md' \
-    | htmlq --text '#glyphCheatSheet' \
-    | sed 's/\W//g' \
-    | grep . \
-    | sed 's/\(.*\)\(.\{4\}\)$/\2 \2 \1/g' \
-    | xargs -I {} printf '\u{}\n' \
+    || (curl -s 'https://www.nerdfonts.com/cheat-sheet' \
+    | htmlq -t '#glyphCheatSheet > div > .codepoint, .class-name' \
+    | awk '!(NR % 2) { print $0" "$0" "p } { p = $0 }' \
+    | grep -v ' nf-mdi-' \
+    | parallel -P1 --colsep ' ' printf '%b" "{2}" "{3}"\n"' '\\U{1}' \
     > "$HOME/.cache/nerdfont-icons.md")) \
-    && rofi -dmenu -matching fuzzy < "$HOME/.cache/nerdfont-icons.md" \
-    | sed 's/ .*//g' \
+    && rofi -dmenu < "$HOME/.cache/nerdfont-icons.md" \
+    | awk '{ print $1 }' \
     | xclip -se c
