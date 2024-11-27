@@ -1,5 +1,7 @@
 {-# OPTIONS_GHC -Wno-unused-local-binds #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 import XMonad
 import System.IO (hPutStrLn)
@@ -42,7 +44,7 @@ import XMonad.Layout.Renamed (renamed, Rename(..))
 import XMonad.Layout.Simplest (Simplest(..))
 import XMonad.Layout.Spacing (smartSpacing)
 import XMonad.Layout.SubLayouts (subLayout)
-import XMonad.Layout.WindowArranger (windowArrange)
+import XMonad.Layout.WindowArranger (windowArrange, WindowArrangerMsg (SetGeometry, DeArrange, Arrange))
 import XMonad.Layout.WindowNavigation (windowNavigation)
 import qualified XMonad.Layout.ToggleLayouts as T (toggleLayouts)
 import qualified XMonad.Layout.MultiToggle as MT (Toggle(..))
@@ -59,6 +61,9 @@ workspaces' = (:[]) <$> ['1'..'9']
 
 browser :: String
 browser = "chromium --allow-legacy-extension-manifests --enable-features=VaapiVideoDecoder --ignore-gpu-blocklist --disable-features=UseOzonePlatform --enable-gpu-rasterization --enable-zero-copy --process-per-site"
+
+chromiumApp :: String -> String
+chromiumApp = ("~/.xmonad/scripts/chromium-app.sh " ++)
 
 startupHook' :: X()
 startupHook' = do
@@ -79,9 +84,9 @@ startupHook' = do
     , "~/.xstart"
     ]
   traverse_ (uncurry spawnOnOnce)
-    [ ("3", "whatsapp-for-linux")
-    , ("1", browser)
-    , ("2", "discord-canary --ignore-gpu-blocklist --disable-features=UseOzonePlatform --enable-features=VaapiVideoDecoder --use-gl=desktop --enable-gpu-rasterization --enable-zero-copy")
+    [ ("1", browser)
+    , ("3", chromiumApp "WhatsApp Web")
+    , ("2", "vesktop --ignore-gpu-blocklist --disable-features=UseOzonePlatform --enable-features=VaapiVideoDecoder --use-gl=desktop --enable-gpu-rasterization --enable-zero-copy")
     ]
 
 term :: String
@@ -117,10 +122,10 @@ scratchpads' =
 
 manageHook' :: XMonad.Query (Data.Monoid.Endo WindowSet)
 manageHook' = composeAll
-  ([ float'      title     "Emulator"
-   , floatRes   "firefox"  "Dialog"
-   , shiftClass "discord"  "2"
-   , shiftClass "whatsapp" "3"
+  ([ float'      title           "Emulator"
+   , floatRes   "firefox"        "Dialog"
+   , shiftClass "Vesktop"        "2"
+   , shiftTitle "WhatsApp Web"   "3"
    , isFullscreen --> doFullFloat
   ] ++ fmap (float' className)
     [ "confirm"
@@ -132,6 +137,7 @@ manageHook' = composeAll
     , "pinentry-gtk-2"
     , "splash"
     , "toolbar"
+    , "ninjabrainbot-Main"
     ]
   ) <> N.namedScratchpadManageHook scratchpads' <> manageSpawn
  where
@@ -142,10 +148,8 @@ manageHook' = composeAll
   floatRes   x y = (className =~ x <&&> resource =~ y) --> doFloat
   shift      x y ws = (x =~ y) --> doShift ws
   shift'     cnd ws = foldr (<&&>) (pure False) cnd --> doShift ws
-  shiftClass x ws = shift className x ws
-
-  role :: Query String
-  role = stringProperty "WM_WINDOW_ROLE"
+  shiftTitle = shift title
+  shiftClass = shift className
 
 nonNSP :: WSType
 nonNSP = WSIs $ pure $ (/=) "NSP" . W.tag
@@ -177,6 +181,7 @@ keys' =
   , cmd "M-f"        "pcmanfm-qt"
   , cmd "M-l"        "xtrlock"
   , cmd "M-C-l"      "sleep 0.3; xset -display $DISPLAY dpms force off; xtrlock"
+  , cmd "M-a"        "screenpen"
   , sh' "<Print>"    "screenshot"
   , sh' "C-<Print>"  "screenshotflame"
   , sh' "S-<Print>"  "screenshotfull"
@@ -194,6 +199,7 @@ keys' =
   , cmd "<XF86AudioLowerVolume>" "pactl set-sink-volume @DEFAULT_SINK@ -1%; pactl get-sink-volume @DEFAULT_SINK@ | sed -r '{N; s/^(\\w*\\W+){4}([0-9]+%).*/\\2/}' | xargs -I '{}' notify-send -i '/usr/share/notify-osd/icons/hicolor/scalable/status/notification-audio-volume-medium.svg' -t 1000 -a 'sysnotif' -h int:value:{} 'Volume' 'Volume decreased to'"
   , cmd "<XF86AudioMute>"        "pactl set-sink-mute @DEFAULT_SINK@ toggle"
   , nsp "M-S-v"                  "set-volume" -- Volume prompt
+  , cmd "M-h"                    "pactl set-sink-port alsa_output.pci-0000_05_00.6.analog-stereo analog-output-headphones" -- Force headphone output (useful when headphones not detected)
 
   -- KB_GROUP Brightness Control
   , cmd "<XF86MonBrightnessUp>"   "lux -a 1%; lux -G | xargs -I '{}' notify-send -a 'sysnotif' -i '/usr/share/notify-osd/icons/hicolor/scalable/status/notification-display-brightness.svg' -t 1000 'Brightness' 'Brightness increased to {}'"
@@ -210,8 +216,11 @@ keys' =
   , on  "M-u"     focusUrgent
 
   -- KB_GROUP Floating Windows
-  , on  "M-t"   $ withFocused $ windows . W.sink -- Push floating window back to tile
-  , on  "M-S-t"   sinkAll                        -- Push ALL floating windows to tile
+  , on  "M-t"    $ withFocused $ windows . W.sink                        -- Push floating window back to tile
+  , on  "M-S-t"    sinkAll                                               -- Push ALL floating windows to tile
+  , on  "M1-t"   $ sendMessage Arrange
+                 *> sendMessage (SetGeometry $ Rectangle (1920 `div` 2 - 160) 0 (160 * 2) 1080) -- Float and make window thin
+  , on  "M1-S-t" $ sendMessage DeArrange                                 -- Stop arranging window
 
   -- KB_GROUP Windows Navigation
   , on  "M-m"      $ windows W.focusMaster -- Move focus to the master window
@@ -220,8 +229,8 @@ keys' =
   , on  "M-k"      $ windows W.focusUp     -- Move focus to the prev window
   , on  "M-S-j"    $ windows W.swapDown    -- Swap focused window with next window
   , on  "M-S-k"    $ windows W.swapUp      -- Swap focused window with prev window
-  , on  "M-/"     promote                  -- Moves focused window to master, others maintain order
-  , on  "M-;"     rotAllDown               -- Rotate all the windows in the current stack
+  , on  "M-/"      promote                 -- Moves focused window to master, others maintain order
+  , on  "M-;"      rotAllDown              -- Rotate all the windows in the current stack
 
   -- KB_GROUP Layouts
   , on  "M-S-f"   $ sendMessage (MT.Toggle NBFULL) *> sendMessage ToggleStruts -- Toggles noborder/full
@@ -259,11 +268,11 @@ keys' =
   termBinds = fmap $ liftA2 nsp ("M1-" ++) ("term" ++)
 
   wsBinds :: [String] -> [(String, X())]
-  wsBinds = (=<<) $ sequenceA $ uncurry (liftA2 on) . first (++) <$>
+  wsBinds = (=<<) $ traverse (uncurry (liftA2 on) . first (++))
     [ ("M-",   windows . W.greedyView)
     , ("M-S-", liftA2 (*>)
-                        (windows . W.shift)
-                        (windows . W.greedyView))
+                 (windows . W.shift)
+                 (windows . W.greedyView))
     , ("M-C-", swapWithCurrent)
     ]
 

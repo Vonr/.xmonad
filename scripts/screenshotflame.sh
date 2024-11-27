@@ -4,7 +4,7 @@
 
 mkdir -p "${HOME}/pictures/screenshots" || exit 1
 date=$(date +%Y-%m-%d)
-file="${HOME}/pictures/screenshots/{$date}-1.png"
+file="${HOME}/pictures/screenshots/${date}-1.png"
 
 count=2
 while [ -f "$file" ]; do # file exists already
