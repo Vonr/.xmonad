@@ -219,7 +219,7 @@ keys' =
   , on  "M-t"    $ withFocused $ windows . W.sink                        -- Push floating window back to tile
   , on  "M-S-t"    sinkAll                                               -- Push ALL floating windows to tile
   , on  "M1-t"   $ sendMessage Arrange
-                 *> sendMessage (SetGeometry $ Rectangle (1920 `div` 2 - 160) 0 (160 * 2) 1080) -- Float and make window thin
+                 *> sendMessage (SetGeometry $ Rectangle (1920 `div` 2 - 160) 0 (162 * 2) 1080) -- Float and make window thin
   , on  "M1-S-t" $ sendMessage DeArrange                                 -- Stop arranging window
 
   -- KB_GROUP Windows Navigation
@@ -304,7 +304,7 @@ main = do
     , keys               = (`mkKeymap` keys')
     , terminal           = term
     , startupHook        = startupHook' <> startupHook def
-    , handleEventHook    = Hacks.windowedFullscreenFixEventHook <> handleEventHook def
+    , handleEventHook    = Hacks.windowedFullscreenFixEventHook <> Hacks.fixSteamFlicker <> handleEventHook def
     , layoutHook         = layoutHook'
     , workspaces         = workspaces'
     , borderWidth        = borderWidth'
