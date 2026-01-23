@@ -3,7 +3,7 @@ version:            1.0.3
 homepage:           https://www.github.com/Vonr/.xmonad
 category:           System
 license:            PublicDomain
-license-file:       UNLICENSE
+license-file:       LICENSE
 author:             Vonr
 maintainer:         Vonr
 bug-reports:        https://www.github.com/Vonr/.xmonad/issues

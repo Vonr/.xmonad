@@ -1,4 +1,5 @@
 #!/bin/sh
 
-~/.ghcup/bin/cabal build . -w ghc-9.4.7 || exit 1
-exec cp -f "$(find ~/.xmonad/dist-newstyle/build/x86_64-linux/ghc-9.4.7/ -maxdepth 1 | sort | tail -1)/x/xmonad/build/xmonad/xmonad" "$1"
+~/.ghcup/bin/cabal install --overwrite-policy=always . || exit 1
+rm "$1" || exit 1
+ln -s ~/.cabal/bin/xmonad "$1"

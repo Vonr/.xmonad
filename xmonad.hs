@@ -22,7 +22,7 @@ import Data.Foldable (traverse_)
 import Data.List (isInfixOf)
 import Data.Monoid (Endo)
 
-import GHC.Base (Applicative (liftA2), join, liftA3)
+import GHC.Base (join, liftA3)
 
 import Text.Read (readMaybe)
 
@@ -54,16 +54,13 @@ import XMonad.Util.EZConfig (mkKeymap, additionalMouseBindings)
 import qualified XMonad.Util.Hacks as Hacks
 import XMonad.Util.Run (spawnPipe)
 import qualified XMonad.Util.NamedScratchpad as N
-import XMonad.Util.SpawnOnce (manageSpawn, spawnOnOnce, spawnOnce)
+import XMonad.Util.SpawnOnce (manageSpawn, spawnOnce)
 
 workspaces' :: [String]
 workspaces' = (:[]) <$> ['1'..'9']
 
 browser :: String
-browser = "chromium --allow-legacy-extension-manifests --enable-features=VaapiVideoDecoder --ignore-gpu-blocklist --disable-features=UseOzonePlatform --enable-gpu-rasterization --enable-zero-copy --process-per-site"
-
-chromiumApp :: String -> String
-chromiumApp = ("~/.xmonad/scripts/chromium-app.sh " ++)
+browser = "chromium"
 
 startupHook' :: X()
 startupHook' = do
@@ -71,22 +68,17 @@ startupHook' = do
   setWMName "LG3D"
   traverse_ spawn
     [ "pkill picom; picom"
-    , "~/.config/xmobar/scripts/cavabar"
+    -- , "~/.config/xmobar/scripts/cavabar"
     ]
   traverse_ spawnOnce
     [ "dbus-update-activation-environment --systemd DBUS_SESSION_BUS_ADDRESS DISPLAY XAUTHORITY" -- fix xdg-portal-desktop not working
     , "lxsession"
     , "feh --bg-scale ~/.xmonad/wallpaper"
     , "conky"
-    , "greenclip daemon"
+    , "diodon"
     , "dunst"
-    , "xrandr --output eDP --auto"
+    , "xrandr --output eDP --mode 2880x1800 --rate 120"
     , "~/.xstart"
-    ]
-  traverse_ (uncurry spawnOnOnce)
-    [ ("1", browser)
-    , ("3", chromiumApp "WhatsApp Web")
-    , ("2", "vesktop --ignore-gpu-blocklist --disable-features=UseOzonePlatform --enable-features=VaapiVideoDecoder --use-gl=desktop --enable-gpu-rasterization --enable-zero-copy")
     ]
 
 term :: String
@@ -158,10 +150,10 @@ keys' :: [(String, X())]
 keys' =
 -- START_KEYS
   -- KB_GROUP XMonad
-  [ cmd "M-C-r"   $ xmonad ++ " --recompile"                      -- Recompiles xmonad
-  , on  "M-S-r"   $ spawn (xmonad ++ " --restart") <> startupHook' -- Restarts xmonad
-  , on  "M-C-S-r" $ io exitSuccess                                -- Recompiles and restarts xmonad
-  , nsp "M-S-/"    "xmonad_keys"                                  -- Get list of keybindings
+  [ cmd "M-C-r" "xmonad --recompile"                         -- Recompiles xmonad
+  , on  "M-S-r"   $ spawn "xmonad --restart" <> startupHook' -- Restarts xmonad
+  , on  "M-C-S-r" $ io exitSuccess                           -- Recompiles and restarts xmonad
+  , nsp "M-S-/"    "xmonad_keys"                             -- Get list of keybindings
 
   -- KB_GROUP Rofi
   , cmd "M-p"   "rofi -show drun"                                                                            -- rofi
@@ -172,7 +164,8 @@ keys' =
   , sh' "M-C-e" "rofi-unicode"                                                                               -- rofi-unicode
   , sh' "M-S-w" "rofi-wifi-menu"                                                                             -- rofi-wifi-menu
   , cmd "M-S-q" "~/.config/rofi/scripts/powermenu_t1"                                                        -- rofi power menu
-  , cmd "M-v"   "rofi -modi 'clipboard:greenclip print' -show clipboard -run-command '{cmd}'"                -- greenclip
+  -- , cmd "M-v"   "rofi -modi 'clipboard:greenclip print' -show clipboard -run-command '{cmd}'"                -- greenclip
+  , cmd "M-v"   "diodon"                -- diodon
 
   -- KB_GROUP Useful Applications
   , cmd "M-b"         browser
@@ -253,7 +246,6 @@ keys' =
   ] ++ liftA2 (++) termBinds wsBinds workspaces'
 -- END_KEYS
  where
-  xmonad = "~/.xmonad/xmonad-x86_64-linux"
   on :: String -> X() -> (String, X())
   on = (,)
   cmd key c   = on key $ spawn c
