@@ -9,7 +9,7 @@ import System.Exit (exitSuccess)
 import qualified XMonad.StackSet as W
 
 import XMonad.Actions.CopyWindow (kill1, copyToAll, killAllOtherCopies)
-import XMonad.Actions.CycleWS (Direction1D(..), WSType(..))
+import XMonad.Actions.CycleWS (Direction1D(..), WSType(..), toggleOrDoSkip)
 import XMonad.Actions.DynamicWorkspaceOrder (moveTo, shiftTo, getSortByOrder)
 import XMonad.Actions.Promote (promote)
 import XMonad.Actions.RotSlaves (rotAllDown)
@@ -55,6 +55,7 @@ import qualified XMonad.Util.Hacks as Hacks
 import XMonad.Util.Run (spawnPipe)
 import qualified XMonad.Util.NamedScratchpad as N
 import XMonad.Util.SpawnOnce (manageSpawn, spawnOnce)
+import XMonad.Hooks.WorkspaceHistory (workspaceHistoryHook)
 
 workspaces' :: [String]
 workspaces' = (:[]) <$> ['1'..'9']
@@ -75,7 +76,6 @@ startupHook' = do
     , "lxsession"
     , "feh --bg-scale ~/.xmonad/wallpaper"
     , "conky"
-    , "diodon"
     , "dunst"
     , "xrandr --output eDP --mode 2880x1800 --rate 120"
     , "~/.xstart"
@@ -150,10 +150,10 @@ keys' :: [(String, X())]
 keys' =
 -- START_KEYS
   -- KB_GROUP XMonad
-  [ cmd "M-C-r" "xmonad --recompile"                         -- Recompiles xmonad
-  , on  "M-S-r"   $ spawn "xmonad --restart" <> startupHook' -- Restarts xmonad
-  , on  "M-C-S-r" $ io exitSuccess                           -- Recompiles and restarts xmonad
-  , nsp "M-S-/"    "xmonad_keys"                             -- Get list of keybindings
+  [ on  "M-C-r"   $ xmd "--recompile"               -- Recompiles xmonad
+  , on  "M-S-r"   $ xmd "--restart" <> startupHook' -- Restarts xmonad
+  , on  "M-C-S-r" $ io exitSuccess                  -- Recompiles and restarts xmonad
+  , nsp "M-S-/"    "xmonad_keys"                    -- Get list of keybindings
 
   -- KB_GROUP Rofi
   , cmd "M-p"   "rofi -show drun"                                                                            -- rofi
@@ -164,8 +164,7 @@ keys' =
   , sh' "M-C-e" "rofi-unicode"                                                                               -- rofi-unicode
   , sh' "M-S-w" "rofi-wifi-menu"                                                                             -- rofi-wifi-menu
   , cmd "M-S-q" "~/.config/rofi/scripts/powermenu_t1"                                                        -- rofi power menu
-  -- , cmd "M-v"   "rofi -modi 'clipboard:greenclip print' -show clipboard -run-command '{cmd}'"                -- greenclip
-  , cmd "M-v"   "diodon"                -- diodon
+  , cmd "M-v"   "ringboard-rofi"                                                                             -- clipboard manager
 
   -- KB_GROUP Useful Applications
   , cmd "M-b"         browser
@@ -188,15 +187,15 @@ keys' =
   , sh  "M-="     "xbasket" ["select"]      -- Select hidden window
 
   -- KB_GROUP Volume Control
-  , cmd "<XF86AudioRaiseVolume>" "pactl set-sink-volume @DEFAULT_SINK@ +1%; pactl get-sink-volume @DEFAULT_SINK@ | sed -r '{N; s/^(\\w*\\W+){4}([0-9]+%).*/\\2/}' | xargs -I '{}' notify-send -i '/usr/share/notify-osd/icons/hicolor/scalable/status/notification-audio-volume-medium.svg' -t 1000 -a 'sysnotif' -h int:value:{} 'Volume' 'Volume increased to'"
-  , cmd "<XF86AudioLowerVolume>" "pactl set-sink-volume @DEFAULT_SINK@ -1%; pactl get-sink-volume @DEFAULT_SINK@ | sed -r '{N; s/^(\\w*\\W+){4}([0-9]+%).*/\\2/}' | xargs -I '{}' notify-send -i '/usr/share/notify-osd/icons/hicolor/scalable/status/notification-audio-volume-medium.svg' -t 1000 -a 'sysnotif' -h int:value:{} 'Volume' 'Volume decreased to'"
+  , cmd "<XF86AudioRaiseVolume>" "pactl set-sink-volume @DEFAULT_SINK@ +1% && notify-send -i '/usr/share/notify-osd/icons/hicolor/scalable/status/notification-audio-volume-medium.svg' -t 1000 -a 'sysnotif' -h \"int:value:$(pactl get-sink-volume @DEFAULT_SINK@ | awk 'NR==1{sub(\"%\",\"\",$5);print$5}')\" 'Volume' 'Volume increased to'"
+  , cmd "<XF86AudioLowerVolume>" "pactl set-sink-volume @DEFAULT_SINK@ -1% && notify-send -i '/usr/share/notify-osd/icons/hicolor/scalable/status/notification-audio-volume-medium.svg' -t 1000 -a 'sysnotif' -h \"int:value:$(pactl get-sink-volume @DEFAULT_SINK@ | awk 'NR==1{sub(\"%\",\"\",$5);print$5}')\" 'Volume' 'Volume increased to'"
   , cmd "<XF86AudioMute>"        "pactl set-sink-mute @DEFAULT_SINK@ toggle"
   , nsp "M-S-v"                  "set-volume" -- Volume prompt
   , cmd "M-h"                    "pactl set-sink-port alsa_output.pci-0000_05_00.6.analog-stereo analog-output-headphones" -- Force headphone output (useful when headphones not detected)
 
   -- KB_GROUP Brightness Control
-  , cmd "<XF86MonBrightnessUp>"   "lux -a 1%; lux -G | xargs -I '{}' notify-send -a 'sysnotif' -i '/usr/share/notify-osd/icons/hicolor/scalable/status/notification-display-brightness.svg' -t 1000 'Brightness' 'Brightness increased to {}'"
-  , cmd "<XF86MonBrightnessDown>" "lux -s 1%; lux -G | xargs -I '{}' notify-send -a 'sysnotif' -i '/usr/share/notify-osd/icons/hicolor/scalable/status/notification-display-brightness.svg' -t 1000 'Brightness' 'Brightness decreased to {}'"
+  , cmd "<XF86MonBrightnessUp>"   "lux -a 1%; notify-send -a 'sysnotif' -i '/usr/share/notify-osd/icons/hicolor/scalable/status/notification-display-brightness.svg' -t 1000 'Brightness' \"Brightness increased to $(lux -G)\""
+  , cmd "<XF86MonBrightnessDown>" "lux -s 1%; notify-send -a 'sysnotif' -i '/usr/share/notify-osd/icons/hicolor/scalable/status/notification-display-brightness.svg' -t 1000 'Brightness' \"Brightness decreased to $(lux -G)\""
   , nsp "M-S-b"                   "set-brightness" -- Brightness Prompt using ibox
 
   -- KB_GROUP Workspaces
@@ -206,13 +205,14 @@ keys' =
   , on  "M-S-," $ shiftTo Prev nonNSP *> moveTo Prev nonNSP  -- Shifts focused window to prev ws
   , on  "M-C-." $ swapTo' Next nonNSP                        -- Swaps current workspace with next workspace
   , on  "M-C-," $ swapTo' Prev nonNSP                        -- Swaps current workspace with previous workspace
-  , on  "M-u"     focusUrgent
+  , on  "M-u"     focusUrgent                                -- Switch to urgent workspace
+  , on  "M-<Backspace>" $ toggleOrDoSkip [] W.greedyView =<< gets (W.currentTag . windowset) -- Switch to previous workspace
 
   -- KB_GROUP Floating Windows
   , on  "M-t"    $ withFocused $ windows . W.sink                        -- Push floating window back to tile
   , on  "M-S-t"    sinkAll                                               -- Push ALL floating windows to tile
   , on  "M1-t"   $ sendMessage Arrange
-                 *> sendMessage (SetGeometry $ Rectangle (1920 `div` 2 - 160) 0 (162 * 2) 1080) -- Float and make window thin
+                 *> sendMessage (SetGeometry $ Rectangle ((2880 - 384) `div` 2) ((1800 - 16384) `div` 2) 384 16384) -- Float and make window thin
   , on  "M1-S-t" $ sendMessage DeArrange                                 -- Stop arranging window
 
   -- KB_GROUP Windows Navigation
@@ -243,6 +243,16 @@ keys' =
   -- KB_GROUP Scratchpads
   , nsp "M-s" "btop"
   , nsp "M-d" "calcurse"
+
+  -- KB_GROUP Mouse Movement
+  , cmd "M-<Left>" "xdotool mousemove_relative -- -1 0"
+  , cmd "M-<Right>" "xdotool mousemove_relative -- 1 0"
+  , cmd "M-<Up>" "xdotool mousemove_relative -- 0 -1"
+  , cmd "M-<Down>" "xdotool mousemove_relative -- 0 1"
+  , cmd "M-C-<Left>" "xdotool mousemove_relative -- -10 0"
+  , cmd "M-C-<Right>" "xdotool mousemove_relative -- 10 0"
+  , cmd "M-C-<Up>" "xdotool mousemove_relative -- 0 -10"
+  , cmd "M-C-<Down>" "xdotool mousemove_relative -- 0 10"
   ] ++ liftA2 (++) termBinds wsBinds workspaces'
 -- END_KEYS
  where
@@ -255,6 +265,7 @@ keys' =
   sh  key f a = cmd key $ "~/.xmonad/scripts/" ++ f ++ ".sh " ++ unwords a
   sh' key f   = sh key f []
   nsp key     = on key . N.namedScratchpadAction scratchpads'
+  xmd args    = spawn $ "~/.xmonad/xmonad-x86_64-linux " ++ args
 
   termBinds :: [String] -> [(String, X())]
   termBinds = fmap $ liftA2 nsp ("M1-" ++) ("term" ++)
@@ -290,7 +301,7 @@ main = do
            withUrgencyHook NoUrgencyHook .
            setEwmhActivateHook doAskUrgent .
            ewmhFullscreen . workspaceNamesEwmh .
-           workspaceNamesEwmh . ewmh $ def
+           workspaceNamesEwmh .  ewmh $ def
     { manageHook         = manageHook' <> manageDocks
     , modMask            = mod4Mask
     , keys               = (`mkKeymap` keys')
@@ -302,7 +313,9 @@ main = do
     , borderWidth        = borderWidth'
     , normalBorderColor  = "#000000"
     , focusedBorderColor = "#966FD6"
-    , logHook            = dynamicLogWithPP $ filterOutWsPP ["NSP"] $ xmobarPP
+    , logHook            = do
+    workspaceHistoryHook
+    dynamicLogWithPP $ filterOutWsPP ["NSP"] $ xmobarPP
       { ppOutput          = hPutStrLn xmproc
       , ppCurrent         = xmFG colorWorkspace . xmBox "Bottom" colorWorkspace       . pad
       , ppVisible         = xmFG colorWorkspace . clickable                           . pad
