@@ -130,6 +130,8 @@ manageHook' = composeAll
     , "splash"
     , "toolbar"
     , "ninjabrainbot-Main"
+    ] ++ fmap (--> doFloat)
+    [ stringProperty "WM_WINDOW_ROLE" =~ "pop-up"
     ]
   ) <> N.namedScratchpadManageHook scratchpads' <> manageSpawn
  where
